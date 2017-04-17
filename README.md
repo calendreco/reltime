@@ -37,8 +37,7 @@ In [3]: base_date = datetime(2017,1,1,0,0,0)
 In [4]: tagged = reltime.tag("I'll see you next weekend")
 
 In [5]: reltime.ground(tagged, base_date, replace=True)
-Out[5]:
-("I'll see you <TIME>GroundedTime</TIME>end", [datetime.datetime(2017, 1, 8, 0, 0)])
+Out[5]: ("I'll see you <TIME>GroundedTime</TIME>end", [datetime.datetime(2017, 1, 8, 0, 0)])
 ```
 
 Without replacement:
