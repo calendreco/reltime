@@ -15,7 +15,7 @@ the reltime package uses regular expressions to identify common ways of speaking
       url='http://live.xyz',
       license='MIT',
       packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
-      download_url = 'https://github.com/calendreco/reltime/archive/v0.1.tar.gz'
+      download_url = 'https://github.com/calendreco/reltime/archive/v0.1.tar.gz',
       include_package_data=True,
       zip_safe=True,
       install_requires=[
