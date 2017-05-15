@@ -1,4 +1,4 @@
-"""Code for tagging temporal expressions in text."""
+"""Code for tagging date expressions in text."""
 
 
 # ---- DEPENDENCIES ---- #
@@ -12,6 +12,8 @@ from dateutil.easter import easter
 
 # ---- CONSTANTS ---- #
 
+# lots of option group nesting used to match complex possibilites with a single regex,
+# NOT  intended to be used for separation of components from matches.
 
 # Predefined option groups.
 NUMBERS = ("(^a(?=\s)|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
@@ -33,13 +35,19 @@ NUMBER_DAY_RELATIVE = "((\d+|(" + NUMBERS + "[-\s]?)+) " + DMY + "s? " + EXP1 + 
 RELATIVE_DMY = "(" + EXP2 + " (" + DMY + "|" + WEEK_DAY + "|" + MONTH + "))"
 RELATIVE_DAY = "(" + REL_DAY + ")"
 ISO = "(((\d{4}|\d{2}|\d{1})[/-](\d{4}|\d{2}|\d{1})[/-](\d{4}|\d{2}|\d{1})(?: \d+:\d+:\d+)?))"
-YEAR = "(((?<=\s)\d{4}|^\d{4}))[\!\,\.\s+]"  # need punct/space at end of year
-DAY_MONTH = "\s+((\d{1,2}[/-]\d{1,2}))[\!\,\.\s+]"  # need punct/space at beginning/end
+YEAR = "(((?<=\s)\d{4}|^\d{4}))([\s.,!]|$)"  # need punct/space at end of year
+DAY_MONTH = "\s+((\d{1,2}[/-]\d{1,2}))([\s.,!]|$)"  # need punct/space at beginning/end
 MONTH_DAY = '((' + MONTH + ')' + "\s\d{1,2})"
-WEEKDAY_ONLY = '\s+((every\s+)?' + WEEK_DAY + '(\s+night)?)[\!\,\.\s+]'
+WEEKDAY_ONLY = '\s+((every\s+)?' + WEEK_DAY + '(\s+night)?)([\s.,!]|$)'
 HOLIDAY_ONLY = '\s+(' + HOLIDAY + ')[\!\,\.\s+]'
 RECURRING_DAILY = '((every day|everyday|every night))'
 TODAY = '((this morning|this afternoon|this evening|last day))'
+
+# times
+AM_PM = "((\s|^)(\d{1,2})(:\d{2})?(\s)?(am?|pm?)([\s.,!]|$))"
+NO_AM_PM = "((\s|^)(as of|until|around|at|by|from)( about| around| approx(\.)?(imately)?)?(\s)(\d{1,2})(:\d{1,2})?([\s.,!]|$))"
+TIME_RANGES = "((\s|^)([1-9]|1[0-2])(\s?(am?|pm?))?(\s?-\s?)([1-9]|1[0-2])(\s?(am?|pm?))?([\s.,!]|$))"
+
 
 # complied regexes
 # five days ago etc...
@@ -64,6 +72,12 @@ REG9 = re.compile(HOLIDAY_ONLY, re.IGNORECASE)
 REG10 = re.compile(RECURRING_DAILY, re.IGNORECASE)
 # today
 REG11 = re.compile(TODAY, re.IGNORECASE)
+# time with am/pm
+REG12 = re.compile(AM_PM, re.IGNORECASE)
+# time without am/pm
+REG13 = re.compile(NO_AM_PM, re.IGNORECASE)
+# time range
+REG14 = re.compile(TIME_RANGES, re.IGNORECASE)
 
 
 # Hash function for week days to simplify the grounding task.
@@ -116,6 +130,50 @@ HASH_MONTHS = {
 
 
 # ---- HELPER FUNCTIONS ---- #
+
+
+def split_hour_minute(time):
+    """Split hour/minute into components."""
+    stripped = time.strip().rstrip('?:!.,;')
+    hourminute = stripped.split(':')
+    if len(hourminute) > 1:
+        hour = int(hourminute[0])
+        minute = int(hourminute[1])
+    else:
+        hour = int(hourminute[0])
+        minute = 0
+    return hour, minute
+
+
+def split_am_pm(time):
+    """Separate time from am/pm if present."""
+    split_am = re.split(r'a', time, flags=re.IGNORECASE)
+    split_pm = re.split(r'p', time, flags=re.IGNORECASE)
+    # three cases: 1. Letter "a" present, 2. letter "p" present, 3. neither present.
+    # If 1, use am, if 2 use pm, otherwise use default
+    if len(split_am) > 1:
+        time = split_am[0].strip()
+        am_pm = "am"
+    elif len(split_pm) > 1:
+        time = split_pm[0].strip()
+        am_pm = "pm"
+    else:
+        time = split_pm[0].strip()
+        am_pm = ""  # returning empty string here is key for subsequent logic
+    return time, am_pm
+
+
+def update_date_with_time(date, time, base_date):
+    """Update a <DATE> datetime with a <TIME> datetime."""
+    # this will only be true if day was updated in time search.
+    if time.day > base_date.day:
+        day = date.day + 1
+    else:
+        day = date.day
+    hour = time.hour
+    minute = time.minute
+    updated_date = date.replace(day=day, hour=hour, minute=minute)
+    return updated_date
 
 
 def hash_numbers(number):
@@ -218,14 +276,14 @@ class NumberDayRelative:
         relative_phrase = split_unit[1]
         earlier_phrases = ["before", "earlier", "ago"]
         if relative_phrase in earlier_phrases:
-            if time_shift.years <= 5:  # we shouldn't have any valid times that are further than 5 years from now.
+            # we shouldn't have any valid times that are further than 5 years from now.
+            if time_shift.years <= 5:
                 new_date = base_date - time_shift
                 return new_date
         else:
             if time_shift.years <= 5:
                 new_date = base_date + time_shift
                 return new_date
-
 
 
 class RelativeDMY:
@@ -463,29 +521,149 @@ class Today:
         return new_date
 
 
-FORMATS = [NumberDayRelative(), RelativeDMY(), RelativeDay(), ISO(), DayMonth(),
-           MonthDay(), WeekdayOnly(), Holiday(), YearOnly(), RecurringDaily(), Today()]
+class TimeAmPm:
+    """Class for time text referring to time with am/pm."""
+
+    def __init__(self):
+        """Initialize class."""
+        self.regex = REG12
+
+    def ground_text(self, text, base_date):
+        """Ground text that matches regex 12."""
+        # split up tag and grab relevant parts
+        time, am_pm = split_am_pm(text)
+        # split up numerical portion
+        hour, minute = split_hour_minute(time)
+        # apply to date as appropriate
+        if ((am_pm == "pm") and (hour != 12)):
+            hour += 12
+        if hour < base_date.hour:
+            day = base_date.day + 1
+        else:
+            day = base_date.day
+        new_date = base_date.replace(day=day, hour=hour, minute=minute)
+        return new_date
 
 
-# ---- PUBLIC METHODS ---- #
+class TimeNoAmPm:
+    """Class for time text referring to time without am/pm."""
+
+    def __init__(self):
+        """Initialize class."""
+        self.regex = REG13
+
+    def ground_text(self, text, base_date):
+        """Ground text that matches regex 13."""
+        # need to find the subset of the match that contains the numbers.
+        # this could be in several locations depending on the match
+        split_time = re.findall(r'((\d{1,2})(:\d{1,2})?)', text)
+        time = split_time[0][0]  # first match, full match.
+        # split up numerical portion
+        hour, minute = split_hour_minute(time)
+        # as a default, assume hours less than 10 are PM.
+        if hour < 10:
+            hour += 12
+        if hour < base_date.hour:
+            day = base_date.day + 1
+        else:
+            day = base_date.day
+        new_date = base_date.replace(day=day, hour=hour, minute=minute)
+        return new_date
 
 
-def tag(text):
-    """Tag time info in text.
+class TimeRange:
+    """Class for time text referring to time ranges."""
+
+    def __init__(self):
+        """Initialize class."""
+        self.regex = REG14
+
+    def ground_text(self, text, base_date):
+        """Ground text that matches regex 14."""
+        split_time = re.split(r'-', text)
+        parsed_time = []
+        for time in split_time:
+            time_text, ampm = split_am_pm(time)
+            time_dict = {'time': time_text, "ampm": ampm}
+            parsed_time.append(time_dict)
+        if ((parsed_time[0]['ampm'] is not "") & (parsed_time[1]['ampm'] is not "")):
+            for time in parsed_time:
+                hour, minute = split_hour_minute(time['time'])
+                if ((time['ampm'] == "pm") and (hour != 12)):
+                    hour += 12
+                time['hour'] = hour
+                time['minute'] = minute
+        elif ((parsed_time[0]['ampm'] is not "") | (parsed_time[1]['ampm'] is not "")):
+            ampm = parsed_time[0]['ampm'] + parsed_time[1]['ampm']
+            for time in parsed_time:
+                hour, minute = split_hour_minute(time['time'])
+                if ((ampm == "pm") and (hour != 12)):
+                    hour += 12
+                time['hour'] = hour
+                time['minute'] = minute
+        else:
+            for time in parsed_time:
+                hour, minute = split_hour_minute(time['time'])
+                time['hour'] = hour
+                time['minute'] = minute
+        for time in parsed_time:
+            # generally, times less than 10 will be PMs if not specified
+            if time['hour'] < 10:
+                time['hour'] += 12
+            if time['hour'] < base_date.hour:
+                time['day'] = base_date.day + 1
+            else:
+                time['day'] = base_date.day
+            time['new_date'] = base_date.replace(day=time['day'],
+                                                 hour=time['hour'],
+                                                 minute=time['minute'])
+        start_time = parsed_time[0]['new_date']
+        end_time = parsed_time[1]['new_date']
+        output = [start_time, end_time]
+        return output
+
+
+TIME_RANGE_FORMATS = [TimeRange()]
+
+TIME_FORMATS = [TimeAmPm(), TimeNoAmPm()]
+
+DATE_FORMATS = [NumberDayRelative(), RelativeDMY(), RelativeDay(),
+                ISO(), DayMonth(), MonthDay(), WeekdayOnly(), Holiday(),
+                YearOnly(), RecurringDaily(), Today()]
+
+
+# ---- NON -PUBLIC METHODS ---- #
+
+
+def _tag(text, subbed_text, type):
+    """Tag date or time info in text.
 
     Parameters:
     text: str to tag
 
     Returns:
-    text: Grounded Text
+    text: tagged text
 
     """
     # Initialization
     time_found = []
+    placeholder = "<SUBBED>"
+    if type == "time":
+        formats = TIME_FORMATS
+        open_tag = '<TIME>'
+        close_tag = '</TIME>'
+    elif type == 'time_range':
+        formats = TIME_RANGE_FORMATS
+        open_tag = '<TIME_RANGE>'
+        close_tag = '</TIME_RANGE>'
+    else:
+        formats = DATE_FORMATS
+        open_tag = '<DATE>'
+        close_tag = '</DATE>'
     # re.findall() finds all the substring matches, keep only the full
     #  matching string. Captures expressions such as 'number of days' ago, etc.
-    for time_format in FORMATS:
-        for time in time_format.regex.findall(text):
+    for time_format in formats:
+        for time in time_format.regex.findall(subbed_text):
             # only use the first result if the regex finds a tuple (substring) (reg1 and reg2 esp)
             if len(time) > 1:
                 time = time[0]
@@ -493,9 +671,54 @@ def tag(text):
 
     # Tag only temporal expressions which haven't been tagged.
     for time in time_found:
-        text = re.sub(time + '(?!</TIME>)', '<TIME>' + time + '</TIME>', text)
+        subbed_text = re.sub(time, placeholder, subbed_text)
+        text = re.sub(time + '(?!' + close_tag + ')', open_tag + time + close_tag, text)
+    return text, subbed_text
 
-    return text
+
+def _ground(text, subbed_text, base_date, type):
+    if type == "time":
+        formats = TIME_FORMATS
+        sub = " <GroundedTime> "
+    elif type == "time_range":
+        formats = TIME_RANGE_FORMATS
+        sub = " <GroundedRange> "
+    else:
+        formats = DATE_FORMATS
+        sub = " <GroundedDate> "
+    grounded_times = []
+    for time_format in formats:
+        # search subbed text to not repeat finds.
+        for time in time_format.regex.findall(subbed_text):
+            # only use the first result if the regex finds a tuple (substring) (reg1 and reg2 esp)
+            if len(time) > 1:
+                time = time[0]
+            # index MUST come from original text
+            index = text.index(time)
+            time_grounded = time_format.ground_text(time, base_date)
+            time_obj = {"index": index, "type": type, "grouped": False, "date_time": time_grounded}
+            grounded_times.append(time_obj)
+            subbed_text = re.sub(time, sub, subbed_text)  # sub out for placeholder
+    return text, subbed_text, grounded_times
+
+
+# ---- PUBLIC METHODS ---- #
+
+
+def tag(text):
+    """Tag all temporal expressions in text.
+
+    Parameters:
+    text: str to tag
+
+    Returns:
+    text: tagged text
+
+    """
+    range_tagged, range_subbed = _tag(text, text, "time_range")
+    time_tagged, time_subbed = _tag(range_tagged, range_subbed, "time")
+    date_tagged, date_subbed = _tag(time_tagged, time_subbed, "date")
+    return date_tagged
 
 
 def ground(text, base_date, replace=False):
@@ -512,16 +735,76 @@ def ground(text, base_date, replace=False):
     """
     # initialize
     grounded_times = []
-    cleaned_text = text
-    for time_format in FORMATS:
-        for time in time_format.regex.findall(cleaned_text):
-            # only use the first result if the regex finds a tuple (substring) (reg1 and reg2 esp)
-            if len(time) > 1:
-                time = time[0]
-            time_grounded = time_format.ground_text(time, base_date)
-            grounded_times.append(time_grounded)
-            cleaned_text = re.sub(time, 'GroundedTime', cleaned_text)  # sub out for placeholder
+    # do ranges first
+    text, cleaned_text, times = _ground(text, text, base_date, "time_range")
+    grounded_times.extend(times)
+    # do time first
+    text, cleaned_text, times = _ground(text, cleaned_text, base_date, "time")
+    grounded_times.extend(times)
+    # then do date
+    text, cleaned_text, times = _ground(text, cleaned_text, base_date, "date")
+    grounded_times.extend(times)
+    # sort found times by index in string
+    sorted_times = sorted(grounded_times, key=lambda k: k['index'])
+    char_limit = 45
+    # find groups of related and group together into final time list
+    final_times = []
+    for k, item in enumerate(sorted_times):
+        # check that we aren't at the end of
+        next_items = [None, None]
+        if (k + 1) < len(sorted_times):
+            # grab one ahead if possible
+            next_items[0] = sorted_times[k + 1]
+        if (k + 2) < len(sorted_times):
+            # grab two ahead if possible
+            next_items[1] = sorted_times[k + 2]
+        next_items = filter(None, next_items)
+        if item['type'] == 'date':
+            if len(next_items) == 0:
+                if item['grouped'] is False:
+                    final_times.append(item['date_time'])
+                    item['grouped'] = True
+            else:
+                for next_item in next_items:
+                    if (((next_item['index'] - item['index']) < char_limit) &
+                       (next_item['grouped'] is False)):
+
+                        if next_item['type'] == 'time':
+                            new_time = update_date_with_time(item['date_time'],
+                                                             next_item['date_time'],
+                                                             base_date)
+                            final_times.append(new_time)
+                            next_item['grouped'] = True
+                            item['grouped'] = True
+                        elif next_item['type'] == 'time_range':
+                            new_start_time = update_date_with_time(item['date_time'],
+                                                                   next_item['date_time'][0],
+                                                                   base_date)
+                            new_end_time = update_date_with_time(item['date_time'],
+                                                                 next_item['date_time'][1],
+                                                                 base_date)
+                            final_times.append(new_start_time)
+                            final_times.append(new_end_time)
+                            next_item['grouped'] = True
+                            item['grouped'] = True
+                        else:
+                            # if at any point we hit a non-time in next next_items
+                            # subsequent nexts cannot be associated, we should exit loop.
+                            break
+                if item['grouped'] is False:
+                    final_times.append(item['date_time'])
+                    item['grouped'] = True
+        elif item['type'] == 'time_range':
+            if item['grouped'] is False:
+                for time in item['date_time']:
+                    final_times.append(time)
+                    item['grouped'] = True
+        else:
+            if item['grouped'] is False:
+                final_times.append(item['date_time'])
+                item['grouped'] = True
+    # output results
     if replace is True:
-        return cleaned_text, grounded_times
+        return cleaned_text, final_times
     else:
-        return grounded_times
+        return final_times
