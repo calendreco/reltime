@@ -12,6 +12,8 @@ from dateutil.easter import easter
 
 # ---- CONSTANTS ---- #
 
+# lots of option group nesting used to match complex possibilites with a single regex,
+# NOT  intended to be used for separation of components from matches.
 
 # Predefined option groups.
 NUMBERS = ("(^a(?=\s)|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
@@ -147,6 +149,8 @@ def split_am_pm(time):
     """Separate time from am/pm if present."""
     split_am = re.split(r'a', time, flags=re.IGNORECASE)
     split_pm = re.split(r'p', time, flags=re.IGNORECASE)
+    # three cases: 1. Letter "a" present, 2. letter "p" present, 3. neither present.
+    # If 1, use am, if 2 use pm, otherwise use default
     if len(split_am) > 1:
         time = split_am[0].strip()
         am_pm = "am"
