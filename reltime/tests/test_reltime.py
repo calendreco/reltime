@@ -166,8 +166,8 @@ class GroundTestCase(unittest.TestCase):
     def test_ground_regexp2(self):
         """Test grounding of regexp 2."""
         base_time = datetime(2015, 10, 1)
-        input = "this year, next january, last mon"
-        output = [datetime(2015, 10, 1), datetime(2016, 1, 1), datetime(2015, 9, 28)]
+        input = "this year, next january, last tueday"
+        output = [datetime(2015, 10, 1), datetime(2016, 1, 1), datetime(2015, 9, 29)]
         self.assertEqual(reltime.ground(input, base_time, replace=False), output)
 
     def test_ground_regexp3(self):
