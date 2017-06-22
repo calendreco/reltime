@@ -184,11 +184,15 @@ def update_date_with_time(date, time, base_date):
     if day > last_day:
         day = 1
         month = date.month + 1
+        if month > 12:
+            month = 1
+            year = date.year + 1
     else:
         month = date.month
+        year = date.year
     hour = time.hour
     minute = time.minute
-    updated_date = date.replace(month=month, day=day, hour=hour, minute=minute)
+    updated_date = date.replace(year=year, month=month, day=day, hour=hour, minute=minute)
     return updated_date
 
 
