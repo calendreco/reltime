@@ -460,7 +460,7 @@ class WeekdayOnly:
         """Ground text that matches regex 8."""
         split_time = re.split(r'\s', text)
         # handle possible recurrence
-        if split_time[0] == 'every':
+        if split_time[0].lower() == 'every':
             day = HASH_WEEKDAYS[split_time[1].lower()]
         else:
             day = HASH_WEEKDAYS[split_time[0].lower()]
