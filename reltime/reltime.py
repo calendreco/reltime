@@ -164,6 +164,12 @@ def split_am_pm(time):
     return time, am_pm
 
 
+def last_day_of_month(date_data):
+    """Calculate the number of days in the month of any given day to handle month bondaries."""
+    next_month = date_data.replace(day=28) + relativedelta(days=4)  # this will never fail
+    return (next_month - relativedelta(days=next_month.day)).day
+
+
 def update_date_with_time(date, time, base_date):
     """Update a <DATE> datetime with a <TIME> datetime."""
     # this will only be true if day was updated in time search.
@@ -171,9 +177,16 @@ def update_date_with_time(date, time, base_date):
         day = date.day + 1
     else:
         day = date.day
+    # need to watch out for month boundary. If we cross will be first day of next month
+    last_day = last_day_of_month(date)
+    if day > last_day:
+        day = 1
+        month = date.month + 1
+    else:
+        month = date.month
     hour = time.hour
     minute = time.minute
-    updated_date = date.replace(day=day, hour=hour, minute=minute)
+    updated_date = date.replace(month=month, day=day, hour=hour, minute=minute)
     return updated_date
 
 
