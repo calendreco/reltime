@@ -474,20 +474,20 @@ class Holiday:
     def ground_text(self, text, base_date):
         """Ground text that matches regex 9."""
         # New Years Eve
-        if re.match(r'(new year(\')?s( eve)?|nye|#newyearseve)', text, re.IGNORECASE):
+        if re.match(r'(new(\s)?year(\')?s((\s)?eve)?|nye|#newyearseve)', text, re.IGNORECASE):
             year = base_date.year
             new_date = datetime(year, 12, 31)
         # valentines
-        elif re.match(r'valentine(\')?s( day)?', text, re.IGNORECASE):
+        elif re.match(r'valentine(\')?s((\s)?day)?', text, re.IGNORECASE):
             year = base_date.year
             new_date = datetime(year, 2, 14)
         # mardi gras
-        elif re.match(r'(mardi gras|fat tuesday|shrove tuesday)', text, re.IGNORECASE):
+        elif re.match(r'(mardi(\s)?gras|fat(\s)?tuesday|shrove(\s)?tuesday)', text, re.IGNORECASE):
             year = base_date.year
             # easter method returns a date object, need to initialize time for type consistency
             new_date = datetime.combine(easter(year), datetime.min.time()) - relativedelta(days=47)
         # st. patricks
-        elif re.match(r'(st patrick(\')?s( day)?|st pattys|st paddys)', text, re.IGNORECASE):
+        elif re.match(r'(st(\s)?patrick(\')?s((\s)?day)?|st(\s)?patty(\')?s|st(\s)?paddy(\')?s)', text, re.IGNORECASE):
             year = base_date.year
             new_date = datetime(year, 3, 17)
         # easter
@@ -496,11 +496,11 @@ class Holiday:
             # easter method returns a date object, need to initialize time for type consistency
             new_date = datetime.combine(easter(year), datetime.min.time())
         # cinco de mayo
-        elif re.match(r'cinco de mayo', text, re.IGNORECASE):
+        elif re.match(r'cinco(\s)?de(\s)?mayo', text, re.IGNORECASE):
             year = base_date.year
             new_date = datetime(year, 5, 5)
         # Mothers day
-        elif re.match(r'mother(\')?s day', text, re.IGNORECASE):
+        elif re.match(r'mother(\')?s(\s)?day', text, re.IGNORECASE):
             year = base_date.year
             # if 5-1 is a sunday, mothers day will be the next sunday
             if datetime(year, 5, 1).weekday == 6:

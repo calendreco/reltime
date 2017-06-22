@@ -247,7 +247,7 @@ class GroundTestCase(unittest.TestCase):
     def test_ground_regexp9(self):
         """Test grounding of regexp 9."""
         base_time = datetime(2016, 1, 10)
-        input = "we have specials on easter, mardi gras, and mother's day every year"
+        input = "we have specials on easter, mardigras, and mother's day every year"
         output = [datetime(2016, 3, 27), datetime(2016, 2, 9), datetime(2016, 5, 8)]
         self.assertEqual(reltime.ground(input, base_time, replace=False), output)
 
