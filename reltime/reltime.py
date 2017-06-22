@@ -166,7 +166,9 @@ def split_am_pm(time):
 
 def last_day_of_month(date_data):
     """Calculate the number of days in the month of any given day to handle month bondaries."""
+    # push out past the last day of the month to get into the next month
     next_month = date_data.replace(day=28) + relativedelta(days=4)  # this will never fail
+    # substract the exact number of days you went into the new month to land on the last day of the previous month
     return (next_month - relativedelta(days=next_month.day)).day
 
 
