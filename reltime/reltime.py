@@ -558,6 +558,8 @@ class TimeAmPm:
         # apply to date as appropriate
         if ((am_pm == "pm") and (hour != 12)):
             hour += 12
+        if hour > 23:
+            hour = 0
         if hour < base_date.hour:
             day = base_date.day + 1
         else:

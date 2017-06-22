@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 import sys
 import os
 
-version = '0.2.8'
+version = '0.2.9'
 
 setup(name='reltime',
       version=version,
@@ -18,7 +18,7 @@ a standard format with the addition of a base date/time for the text.""",
       url='http://live.xyz',
       license='MIT',
       packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
-      download_url='https://github.com/calendreco/reltime/archive/v0.2.8.tar.gz',
+      download_url='https://github.com/calendreco/reltime/archive/v0.2.9.tar.gz',
       include_package_data=True,
       zip_safe=True,
       install_requires=[
