@@ -713,8 +713,9 @@ def _ground(text, subbed_text, base_date, type):
             index = text.index(time)
             time_grounded = time_format.ground_text(time, base_date)
             time_obj = {"index": index, "type": type, "grouped": False, "date_time": time_grounded}
-            grounded_times.append(time_obj)
-            subbed_text = re.sub(time, sub, subbed_text)  # sub out for placeholder
+            if time_obj['date_time'] is not None:
+                grounded_times.append(time_obj)
+                subbed_text = re.sub(time, sub, subbed_text)  # sub out for placeholder
     return text, subbed_text, grounded_times
 
 
