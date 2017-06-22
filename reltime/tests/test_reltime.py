@@ -5,6 +5,38 @@ import reltime
 from datetime import datetime
 
 
+class HelperTestCase(unittest.TestCase):
+    """Test some of the tricky helpers."""
+
+    def test_last_day_of_month(self):
+        """Test reltime.last_day_of_month."""
+        input1 = datetime(2016, 2, 1)
+        output1 = 29
+        self.assertEqual(reltime.last_day_of_month(input1), output1)
+        input2 = datetime(2015, 2, 1)
+        output2 = 28
+        self.assertEqual(reltime.last_day_of_month(input2), output2)
+        input3 = datetime(2017, 1, 15)
+        output3 = 31
+        self.assertEqual(reltime.last_day_of_month(input3), output3)
+        input4 = datetime(2009, 9, 28)
+        output4 = 30
+        self.assertEqual(reltime.last_day_of_month(input4), output4)
+
+    def test_update_date_with_time(self):
+        """Test reltime.update_date_with_time."""
+        date1 = datetime(2016, 2, 29)  # found a date at the end of next month
+        time1 = datetime(2016, 1, 31, 18, 0, 0)  # time found was one day forward of base date
+        base_date1 = datetime(2016, 1, 30)  # base date is near the end of this month
+        output1 = datetime(2016, 3, 1, 18, 0, 0)
+        self.assertEqual(reltime.update_date_with_time(date1, time1, base_date1), output1)
+        date2 = datetime(2016, 2, 15)  # normal case
+        time2 = datetime(2016, 1, 31, 18, 0, 0)  # normal case
+        base_date2 = datetime(2016, 1, 30)  # normal case
+        output2 = datetime(2016, 2, 16, 18, 0, 0)
+        self.assertEqual(reltime.update_date_with_time(date2, time2, base_date2), output2)
+
+
 class TagTestCase(unittest.TestCase):
     """Test reltime.tag()."""
 
