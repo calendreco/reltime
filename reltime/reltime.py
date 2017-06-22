@@ -184,6 +184,7 @@ def update_date_with_time(date, time, base_date):
     if day > last_day:
         day = 1
         month = date.month + 1
+        year = date.year
         if month > 12:
             month = 1
             year = date.year + 1
@@ -581,6 +582,8 @@ class TimeNoAmPm:
         # split up numerical portion
         hour, minute = split_hour_minute(time)
         # as a default, assume hours less than 10 are PM.
+        if hour > 23:
+            hour = 0
         if hour < 10:
             hour += 12
         if hour < base_date.hour:
